@@ -1,11 +1,13 @@
 import streamlit as st
 import joblib
+import pandas as pd
+import os
 
 # Inisialisasi session
 if "submitted" not in st.session_state:
     st.session_state.submitted = False
 
-# Data soal pilihan ganda
+# Soal pilihan ganda
 soal_pilgan = [
     {
         "soal": "1. Sari, Budi, Citra, Doni, dan Eka bermain Cublak-Cublak Suweng. Setelah hompimpa, Sari menjadi penebak dan duduk tengkurap di tengah, sedangkan 4 temannya duduk melingkar. Jika Sari menebak secara acak, berapakah peluang tebakannya benar?",
@@ -34,44 +36,55 @@ soal_pilgan = [
     }
 ]
 
-# Input nama siswa
-st.title("🎮 Kuis Interaktif - Kegiatan 2")
+# ================= HEADER =================
+st.set_page_config(page_title="Kuis Etnomatematika", page_icon="🎓")
+st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/Wayang_Kulit_-_Museum_Sonobudoyo.jpg/640px-Wayang_Kulit_-_Museum_Sonobudoyo.jpg", use_column_width=True)
+st.markdown("## 🎭 Kuis Etnomatematika: Cublak-Cublak Suweng")
+st.caption("📚 Materi: Peluang - Konteks Budaya Jawa (Kegiatan 2)")
+
+# ================= FORM INPUT NAMA =================
 nama = st.text_input("Masukkan nama kamu:")
 
 if nama:
     with st.form("kuis_form"):
         st.subheader("📋 Soal Pilihan Ganda")
-
         jawaban_siswa = []
         for i, soal in enumerate(soal_pilgan):
             pilihan = st.radio(soal["soal"], soal["opsi"], key=f"soal_{i}")
             jawaban_siswa.append(pilihan)
-
-        submit = st.form_submit_button("Kirim Jawaban")
+        submit = st.form_submit_button("✅ Kirim Jawaban")
 
     if submit:
         st.session_state.submitted = True
         benar = 0
-        feedback = []
+        pembahasan = []
 
         for i, soal in enumerate(soal_pilgan):
             jawaban_user = jawaban_siswa[i][0]  # A/B/C/D
             kunci = soal["jawaban"]
             if jawaban_user == kunci:
                 benar += 1
-                feedback.append(f"✅ Soal {i+1}: Benar")
+                pembahasan.append(f"✅ Soal {i+1}: Benar")
             else:
-                feedback.append(f"❌ Soal {i+1}: Salah. Jawaban yang benar: {kunci}")
+                pembahasan.append(f"❌ Soal {i+1}: Salah. Jawaban benar: {kunci}")
 
         nilai = int((benar / len(soal_pilgan)) * 100)
-        st.success(f"Kamu menjawab benar {benar} dari {len(soal_pilgan)} soal.")
-        st.info(f"Nilai akhir kamu: {nilai}/100")
+
+        # ================= ANIMASI =================
+        if nilai == 100:
+            st.balloons()
+        elif nilai >= 80:
+            st.snow()
+
+        # ================= FEEDBACK =================
+        st.success(f"🎉 {nama}, kamu menjawab benar {benar} dari {len(soal_pilgan)} soal.")
+        st.info(f"📊 Nilai akhir kamu: {nilai}/100")
 
         with st.expander("🔍 Lihat Pembahasan"):
-            for line in feedback:
-                st.write(line)
+            for p in pembahasan:
+                st.write(p)
 
-        # Simpan hasil ke file .pkl
+        # ================= SIMPAN .PKL =================
         hasil = {
             "nama": nama,
             "skor": nilai,
@@ -81,5 +94,19 @@ if nama:
         }
         joblib.dump(hasil, "hasil_kuis2.pkl")
         with open("hasil_kuis2.pkl", "rb") as f:
-            st.download_button("📥 Unduh Hasil Kuis (.pkl)", data=f, file_name="hasil_kuis2.pkl")
+            st.download_button("📥 Unduh Hasil Individu (.pkl)", data=f, file_name="hasil_kuis2.pkl")
 
+        # ================= REKAP .CSV =================
+        csv_file = "rekap_nilai.csv"
+        if not os.path.exists(csv_file):
+            df_init = pd.DataFrame(columns=["Nama", "Skor", "Benar", "Total", "Jawaban"])
+            df_init.to_csv(csv_file, index=False)
+
+        # Tambahkan ke CSV
+        data = pd.read_csv(csv_file)
+        data.loc[len(data)] = [nama, nilai, benar, len(soal_pilgan), str(jawaban_siswa)]
+        data.to_csv(csv_file, index=False)
+
+        # Tombol download CSV
+        with open(csv_file, "rb") as f:
+            st.download_button("📄 Unduh Rekap Semua Siswa (.csv)", data=f, file_name="rekap_nilai.csv")
